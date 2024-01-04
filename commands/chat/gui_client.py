@@ -1,15 +1,36 @@
+
+
+
+
+
+
+
+
+
+# You have to run the file, right click this file and click 'open with', select python
+# Remember you have to have python installed
+
+
+
+
+
+
+
+
+
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 import socket
 import threading
+from sys import argv
 ## Updater ###########################
 import typing
 import urllib.error
 import urllib.parse
 import urllib.request
 from email.message import Message
-from os import path
+from os import path, replace
 class Response(typing.NamedTuple):
     body: str
     headers: Message
@@ -36,10 +57,10 @@ def CheckForUpdate():
     with open(path.join(path.abspath(path.dirname(__file__)),"version.txt"),"r") as f:
         myVer = f.read()
     if verReq.body != myVer:
-        return (myVer, verReq.body.split(","))
+        return (myVer.split(",")[0], verReq.body.split(","))
     else:
         return ('',[])
-def DownloadUpdate(updateInfo):
+def DownloadUpdate(_, updateInfo):
     if updateInfo == ('',[]):
         print("Update is empty!")
         return
@@ -47,14 +68,32 @@ def DownloadUpdate(updateInfo):
     installPath = path.abspath(path.dirname(__file__))
     print(f"Installing to: {installPath}")
     fileNum = 0
-    for i in updateInfo[1]:
-        print(f"Downloading {i} [{fileNum}/{len(updateInfo[1])}]")
-        fileRequest = request("https://raw.githubusercontent.com/SGOTI2/mpycli/main/commands/chat/version.txt")
+    updateInfo.pop(0)
+    updateInfo.pop(0)
+    installInfo = []
+    for i in updateInfo:
+        print(f"Downloading {i} [{fileNum}/{len(updateInfo)}]")
+        fileNum += 1;
+        fileRequest = request(f"https://raw.githubusercontent.com/SGOTI2/mpycli/main/commands/chat/{i}")
         print(f"Request received, status: {fileRequest.status}")
         if fileRequest.error:
             print(f"[ERROR] Request has a Error. File not downloaded, please try again to update this file.")
             continue
-        #print(fileRequest.body)
+        writingLocation = path.join(installPath, i.split("\n")[0]+".updatepart")
+        print(f"Writing File: {writingLocation}")
+        with open(writingLocation, "wb") as f:
+            f.write(fileRequest.body.encode("utf-8"))
+        print(f"Writing complete for file")
+        installInfo.append(writingLocation)
+    print("Download Complete, ready to install")
+    installUpdate(installInfo)
+def installUpdate(installInfo):
+    for i in installInfo:
+        newList = i.split(".")
+        newList.pop(len(newList)-1)
+        new = '.'.join(newList)
+        print(f"{i}=>{new}")
+        replace(i, new)
 ## End Updater ###########################
 class ConnectionHandler():
     def __init__(self, host: str, port: int, inIP: str, inPort: int):
@@ -83,7 +122,7 @@ class ConnectionHandler():
             s.send(f"{self.getMyIP()}{self.SEPARATOR}{self.inPort}{self.SEPARATOR}kill{self.SEPARATOR}".encode())
             s.sendall('_terminate_'.encode("utf-8"))
             s.close()
-            print(f"[LOCAL_SYSTEM] Terminated Connection to {self.host}:{self.port}")
+            print(f"Terminated Connection to {self.host}:{self.port}")
         else:
             print("You have already disconnected")
         self.connected = False
@@ -117,7 +156,7 @@ class ConnectionHandler():
         self.sin = socket.socket()
         self.sin.bind((self.inIP, self.inPort))
         self.sin.listen(5)
-        self.receivingThread = threading.Thread(target=self.ThreadFReceiving, args={callback})
+        self.receivingThread = threading.Thread(target=self.ThreadFReceiving, args={callback}, daemon=True)
         self.receivingThread.start()
     def send(self, message):
         s = socket.socket()
@@ -134,17 +173,29 @@ class App(tk.Tk):
     def ThreadFCheckUpdate(self):
         updateCheck = CheckForUpdate()
         if updateCheck != ('',[]):
-            responce = messagebox.askquestion("MPYCLI - Chat - Outdated Client!", f"Your client version is outdated.\n\nWould you like to download the update?\n\n{updateCheck[0]}=>{updateCheck[1]}")
+            if updateCheck[1][1] == "r":
+                self.title("")
+                self.lockout = True
+                responce = messagebox.askokcancel("MPYCLI - Chat - Outdated Client!", f"Your client version is outdated.\nYou MUST download the update, would you like to do so?\n\n{updateCheck[0]}=>{updateCheck[1][0]}")
+                if responce == True:
+                    self.ThreadUpdate = threading.Thread(target=DownloadUpdate, args=(updateCheck))
+                    self.ThreadUpdate.start()
+                    self.ThreadUpdate.join()
+                self.FClose()
+            else:
+                responce = messagebox.askquestion("MPYCLI - Chat - Outdated Client!", f"Your client version is outdated.\n\nWould you like to download the update?\n\n{updateCheck[0]}=>{updateCheck[1][0]}")
             if responce == 'yes':
-                self.destroy()
-                DownloadUpdate()
-    def __init__(self):
+                self.ThreadUpdate = threading.Thread(target=DownloadUpdate, args=(updateCheck))
+                self.ThreadUpdate.start()
+                self.ThreadUpdate.join()
+                self.FClose()
+    def __init__(self, startArgs):
         super().__init__()
-        self.ThreadUpdate = threading.Thread(target=self.ThreadFCheckUpdate)
-        self.ThreadUpdate.start()
+        self.ThreadUpdateCheck = threading.Thread(target=self.ThreadFCheckUpdate, daemon=True)
+        self.ThreadUpdateCheck.start()
         #self.FDarkMode()
         self.root = ttk.Frame(self)#, style="Dark.TFrame")
-        self.FLoadSetup()
+        self.FLoadSetup(startArgs)
         self.root.pack(fill=tk.BOTH, expand=True)
         self.protocol("WM_DELETE_WINDOW", self.FClose)
     def FClose(self):
@@ -212,7 +263,7 @@ class App(tk.Tk):
         style = ttk.Style()
         style.theme_create('dark', parent="clam", settings=dark_theme)
         style.theme_use('dark')
-    def FLoadSetup(self):
+    def FLoadSetup(self, startArgs):
         self.title('MPYCLI - Chat - Setup')
         self.geometry('250x230')
         self.Setup_WMain = ttk.Frame(self.root)
@@ -275,7 +326,19 @@ class App(tk.Tk):
         self.Setup_WConnect.grid(column=0, row=7, columnspan=2)
 
         self.Setup_WMain.pack()
-        self.FEnableUseDefault()
+        if startArgs != ["", 0, 0]:
+            self.FDisableUseDefault()
+            if startArgs[0] != "":
+                self.Setup_WIP.delete(0, tk.END)
+                self.Setup_WIp.insert(0, startArgs[0])
+            if startArgs[1] != 0:
+                self.Setup_WPort.delete(0, tk.END)
+                self.Setup_WPort.insert(0, startArgs[1])
+            if startArgs[2] != 0:
+                self.Setup_WMyPort.delete(0, tk.END)
+                self.Setup_WMyPort.insert(0, startArgs[2])
+        else:
+            self.FEnableUseDefault()
     def FDeconstructSetup(self):
         self.Setup_WMain.destroy()
     def FEnableUseDefault(self):
@@ -305,6 +368,9 @@ class App(tk.Tk):
 
 
     def FConnect(self):
+        if 'lockout' in dir(self):
+            self.FErrorThrow("You must update to connect to a server")
+            return
         self.ServerIP = self.Setup_WIp.get()
         self.ServerPort = int(self.Setup_WPort.get())
         self.InputIP = self.Setup_WMyIp.get()
@@ -329,7 +395,7 @@ class App(tk.Tk):
         
 
         # Connection Request
-        self.ThreadConnect = threading.Thread(target=self.ThreadFConnect)
+        self.ThreadConnect = threading.Thread(target=self.ThreadFConnect, daemon=True)
         self.ThreadConnect.start()
     def FDeconstructConnect(self):
         self.Connect_WMain.destroy()
@@ -368,7 +434,6 @@ class App(tk.Tk):
         self.connectionHandler.send(self.Chat_WInputBox.get())
         self.Chat_WInputBox.delete(0, tk.END)
     def FGetMessage(self, message):
-        print(message)
         if "Chat_WMessages" in dir(self):
             self.Chat_WMessages.insert(tk.END, message)
     def FChatSetup(self):
@@ -424,5 +489,28 @@ class App(tk.Tk):
         self.Chat_WMain.columnconfigure(0, weight=1)
         self.Chat_WMain.pack(fill=tk.BOTH, expand=True)
 if __name__ == "__main__":
-    app = App()
+    startArgs = ["", 0, 0]
+    args = []
+    argsStr = ' '.join(argv).split("-")
+    argsStr.pop(0)
+    for i in argsStr:
+        args.append(i.split(" "))
+    for i in args:
+        match i[0]:
+            case "ip":
+                try:
+                    startArgs[0] = str(i[1])
+                except IndexError:
+                    print("A ip address must be specified to use")
+            case "port":
+                try:
+                    startArgs[1] = int(i[1])
+                except IndexError:
+                    print("A port must be specified to use")
+            case "inport":
+                try:
+                    startArgs[2] = int(i[1])
+                except IndexError:
+                    print("A port must be specified to use")
+    app = App(startArgs)
     app.mainloop()
