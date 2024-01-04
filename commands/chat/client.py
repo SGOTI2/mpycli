@@ -32,6 +32,8 @@ for i in args:
 
 SEPARATOR = "<SEPARATOR>"
 BUFFER_SIZE = 4096 
+# IP Aliases, (IP, Name)
+alias = [["172.16.5.255", "SGOTI2"]]
 # the ip address or hostname of the server, the receiver
 if host == "":
     host = input("IP>")
@@ -39,7 +41,7 @@ def initialRequest():
     s = socket.socket() # create socket
     s.connect((host, port))
     myip = socket.gethostbyname(socket.gethostname())
-    s.send(f"{myip}{SEPARATOR}{INPUT_PORT}{SEPARATOR}".encode())
+    s.send(f"{myip}{SEPARATOR}{INPUT_PORT}{SEPARATOR}init{SEPARATOR}".encode())
     s.close()
     print(f"[LOCAL_SYSTEM] Connection Established to {host}:{port}")
 def killConnection():
@@ -47,7 +49,7 @@ def killConnection():
     s = socket.socket() # create socket
     s.connect((host, port))
     myip = socket.gethostbyname(socket.gethostname())
-    s.send(f"{myip}{SEPARATOR}{INPUT_PORT}{SEPARATOR}".encode())
+    s.send(f"{myip}{SEPARATOR}{INPUT_PORT}{SEPARATOR}kill{SEPARATOR}".encode())
     s.sendall('_terminate_'.encode("utf-8"))
     s.close()
     sin.close()
@@ -89,10 +91,13 @@ def inConnect():
             myip = socket.gethostbyname(socket.gethostname())
             final = final.replace("[SERVER]["+host+"]", "[\x1b[1;31mSERVER\x1B[0m][\x1b[1;31m"+host+"\x1B[0m]")
             final = final.replace("["+myip+"]", "[\x1b[1;32m"+myip+"\x1B[0m]")
+            for i in range(len(alias)):
+                final = final.replace(alias[i][0], alias[i][1])
             print(final)
     except KeyboardInterrupt:
         return
-    except:
+    except Exception as e:
+        print(e)
         os._exit(0)
 inThread = threading.Thread(target=inConnect)
 inThread.start()
@@ -102,7 +107,7 @@ try:
         s = socket.socket() # create socket
         s.connect((host, port))
         myip = socket.gethostbyname(socket.gethostname())
-        s.send(f"{myip}{SEPARATOR}{INPUT_PORT}{SEPARATOR}".encode())
+        s.send(f"{myip}{SEPARATOR}{INPUT_PORT}{SEPARATOR}message{SEPARATOR}".encode())
         for i in range(len(message) % BUFFER_SIZE):
             sending = message[i*BUFFER_SIZE:(i+1)*BUFFER_SIZE:1]
             s.sendall(sending.encode("utf-8"))

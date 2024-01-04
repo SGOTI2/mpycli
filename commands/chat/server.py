@@ -20,6 +20,10 @@ for i in args:
 # receive 4096 bytes each time
 BUFFER_SIZE = 4096
 SEPARATOR = "<SEPARATOR>"
+requestType = {
+    "init": "init",
+    "terminate": "kill"
+}
 # create the server socket
 # TCP socket
 s = socket.socket()
@@ -39,13 +43,23 @@ def callback(message):
 # receive the file infos
 # receive using client socket, not server socket
 def clientConnectionSend(ip, port, message):
-    s = socket.socket() # create socket
-    s.connect((ip, port))
-    s.send(f"".encode())
-    for i in range(len(message) % BUFFER_SIZE):
-        sending = message[i*BUFFER_SIZE:(i+1)*BUFFER_SIZE:1]
-        s.sendall(sending.encode("utf-8"))
+    try:
+        s = socket.socket() # create socket
+        s.connect((ip, port))
+        s.send(f"".encode())
+        for i in range(len(message) % BUFFER_SIZE):
+            sending = message[i*BUFFER_SIZE:(i+1)*BUFFER_SIZE:1]
+            s.sendall(sending.encode("utf-8"))
+    except:
+        print(f"Client Connection Send Failed to {ip}:{port}")
     s.close()
+def terminateClient(ip, port, appending):
+    print(f"[SYSTEM][{ip}:{port}] Terminated Connection")
+    if callbackList.__contains__(appending):
+        callbackList.pop(callbackList.index(appending))
+    else:
+        print("Failed to terminate: ", appending)
+    callback(f"[SYSTEM][{ip}] Disconnected")
 pastMessages = []
 global client_socket
 def serverInput():
@@ -66,17 +80,22 @@ try:
         client_socket, address = s.accept()
         # if below code is executed, that means the sender is connected
         received = client_socket.recv(BUFFER_SIZE).decode()
-        ip, port, filesize = received.split(SEPARATOR)
+        ip, port, reqType, filesize = received.split(SEPARATOR)
         appending = (ip, port)
-        if not callbackList.__contains__(appending):
-            callbackList.append(appending)
-            print(f"Established New Connection: {ip}")
-            callback(f"[SYSTEM][{ip}] Connected")
-            client_socket.close()
+        if reqType == requestType["init"]:
+            if not callbackList.__contains__(appending):
+                callbackList.append(appending)
+                print(f"Established New Connection: {ip}")
+                callback(f"[SYSTEM][{ip}] Connected")
+                client_socket.close()
+                continue
+        if reqType == requestType["terminate"]:
+            terminateClient(ip, port, appending)
             continue
         # start receiving the file from the socket
         # and writing to the file stream
-        final = "["+str(ip)+"] "
+        base = "["+str(ip)+"] "
+        final = base
         while True:
             # read 1024 bytes from the socket (receive)
             bytes_read = client_socket.recv(BUFFER_SIZE)
@@ -87,17 +106,15 @@ try:
             # write to the file the bytes we just received
             final+=str(bytes_read, encoding="utf-8")
             # update the progress bar
-        if final == "["+str(ip)+"] ":
-            print(f"[SYSTEM][{ip}] Empty Message")
+        if final == base:
+            print(f"[SYSTEM][{ip}:{port}] Empty Message")
             continue
-        if final == "["+str(ip)+"] _terminate_":
-            print(f"[SYSTEM][{ip}] Terminated Connection")
-            callbackList.pop(callbackList.index(appending))
-            callback(f"[SYSTEM][{ip}] Disconnected")
+        if final == base+"_terminate_":
+            terminateClient(ip, port, appending)
             continue
         # close the client socket
         # close the server socket
-        print(final)
+        print(f"[{reqType.capitalize()}][{ip}:{port}]"+final.replace(base,""))
         pastMessages.append(final)
         if len(pastMessages) >= 51:
             pastMessages.pop(0)
