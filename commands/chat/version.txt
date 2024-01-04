@@ -1,1 +1,1 @@
-1.1.01032024171523,r,client.py,gui_client.py,server.py,version.txt
+1.2.01042024094023,r,client.py,gui_client.py,server.py,version.txt

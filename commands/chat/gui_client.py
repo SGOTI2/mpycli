@@ -54,8 +54,11 @@ def CheckForUpdate():
         return ('',[])
         pass
     myVer = "0"
-    with open(path.join(path.abspath(path.dirname(__file__)),"version.txt"),"r") as f:
-        myVer = f.read()
+    try:
+        with open(path.join(path.abspath(path.dirname(__file__)),"version.txt"),"r") as f:
+            myVer = f.read()
+    except FileNotFoundError:
+        pass
     if verReq.body != myVer:
         return (myVer.split(",")[0], verReq.body.split(","))
     else:
