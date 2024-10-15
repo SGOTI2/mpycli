@@ -236,7 +236,7 @@ class App(tk.Tk):
                 "configure": {
                     "background": "#2d2d2d",  # Dark grey background
                     "foreground": "white",    # White text
-                    "fieldbackground" : "#4d4d4d",
+                    "fieldbackFground" : "#4d4d4d",
                     "insertcolor": "white",
                     "bordercolor" : "black",
                     "lightcolor" : "#4d4d4d",
@@ -419,7 +419,7 @@ class App(tk.Tk):
             self.FErrorThrow(err.strerror)
         if ranWithErrors:
             self.FDeconstructConnect()
-            self.FLoadSetup()
+            self.FLoadSetup(('',[]))
         print("Connected!")
         self.FChatSetup()
     def FDisconnect(self):
@@ -431,7 +431,7 @@ class App(tk.Tk):
         self.Chat_WMain.destroy()
     def FDisconnectButton(self):
         self.FDeconstructChat()
-        self.FLoadSetup()
+        self.FLoadSetup(('',[]))
         self.FDisconnect()
     def FSendMessage(self, *_):
         self.connectionHandler.send(self.Chat_WInputBox.get())

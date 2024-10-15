@@ -14,6 +14,12 @@
         <filename>12152023071600A.py</filename>
     </command>
     <command>
+        <name>killbook</name>
+        <type>batch</type>
+        <path>\commands\</path>
+        <filename>12132023120400P.bat</filename>
+    </command>
+    <command>
         <name>storage</name>
         <type>python</type>
         <path>\commands\</path>
@@ -86,5 +92,11 @@
         <type>python</type>
         <path>\commands\chat\</path>
         <filename>split.py</filename>
+    </command>
+    <command>
+        <name>hacker2</name>
+        <type>python</type>
+        <path>\commands\</path>
+        <filename>hacker.py</filename>
     </command>
 </root>

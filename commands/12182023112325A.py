@@ -14,7 +14,7 @@ vid = cv2.VideoCapture(camID, cv2.CAP_DSHOW)
 if vid is None or not vid.isOpened():
     print("[0x02] Default ID failed Checking first 10 ids")
     camID = 0
-    for i in range(10):
+    for i in range(500):
         vid = cv2.VideoCapture(camID)
         if vid is None or not vid.isOpened():
             print(f"A camera was not found for this cap id ({camID})")
